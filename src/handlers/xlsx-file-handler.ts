@@ -33,7 +33,7 @@ export class XlsxFileHandler {
     const { error, value } = rowSchema.validate(row);
 
     if (error) {
-      throw new Error(`InvalidRow: ${error.details.map((d) => d.message).join(', ')}`);
+      throw new Error(`InvalidRow at line ${index}: ${error.details.map((d) => d.message).join(', ')}`);
     }
 
     return {
@@ -120,8 +120,7 @@ export class XlsxFileHandler {
 
   static writeGroupedTaxesToExcel(
     cryptoDetails: { [crypto: string]: CryptoDetails },
-    outputPath: string,
-    transactions: CryptoTransaction[]
+    outputPath: string
   ): void {
     const data: any[] = [];
 

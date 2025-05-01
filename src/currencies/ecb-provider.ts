@@ -1,11 +1,8 @@
 import axios from 'axios';
 import Bottleneck from 'bottleneck';
 import fs from 'fs';
-import path from 'path';
 import { Mutex } from 'async-mutex';
 import crypto from 'crypto';
-
-export const logFilePath = path.join(__dirname, '../../output', 'ecb-provider-logs.txt');
 
 import { CurrencyConversionInterface } from '../types';
 
@@ -19,7 +16,7 @@ const limiter = new Bottleneck({
 const logMutex = new Mutex();
 
 // Updated helper function to log data to the file with parallel handling
-async function logToFile(data: string, hashId?: string): Promise<void> {
+async function logToFile(logFilePath: string, data: string, hashId?: string): Promise<void> {
   const timestamp = new Date().toISOString();
   const logEntry = `====================\nTimestamp: ${timestamp}\nHash ID: ${hashId || 'N/A'}\nDetails: ${data}\n====================\n\n`;
 
@@ -34,17 +31,22 @@ async function logToFile(data: string, hashId?: string): Promise<void> {
 
 export class ECBConversionProvider implements CurrencyConversionInterface {
   private static BASE_URL = 'https://api.exchangeratesapi.io';
+  private logFilePath: string;
+
+  constructor(logFilePath: string) {
+    this.logFilePath = logFilePath;
+  }
 
   // Updated limitedGet to include hash ID for request-response linking
   private async limitedGet(url: string, params: Record<string, string>): Promise<any> {
     const hashId = crypto.randomBytes(8).toString('hex');
     try {
-      logToFile(`Request: URL=${url}, Params=${JSON.stringify(params)}`, hashId);
+      logToFile(this.logFilePath, `Request: URL=${url}, Params=${JSON.stringify(params)}`, hashId);
       const response = await limiter.schedule(() => axios.get(url, { params }));
-      logToFile(`Response: ${JSON.stringify(response.data)}`, hashId);
+      logToFile(this.logFilePath, `Response: ${JSON.stringify(response.data)}`, hashId);
       return response;
     } catch (error) {
-      logToFile(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, hashId);
+      logToFile(this.logFilePath, `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, hashId);
       throw error;
     }
   }

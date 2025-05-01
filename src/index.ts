@@ -7,8 +7,6 @@ import * as ts from 'typescript';
 import { XlsxFileHandler } from './handlers';
 import { createTaxCalculator } from './calculators';
 
-export const logFilePath = path.join(__dirname, '../../output', 'ecb-provider-logs.txt');
-
 
 function getOutDirFromTsConfig(): string {
   const configPath = path.resolve('tsconfig.json');
@@ -39,6 +37,7 @@ async function main() {
     // Define file paths within the unique output folder
     const inputFilePath = process.argv[2] || 'transactions.xlsx';
     const outputFilePath = path.join(outputFolder, `grouped_taxes_${formattedDate}.xlsx`);
+    const logFilePath = path.join(outputFolder, `ecb-provider-logs_${formattedDate}.txt`);
 
     // Vérifier si le fichier d'entrée existe
     if (!existsSync(inputFilePath)) {
@@ -49,16 +48,16 @@ async function main() {
     const transactionsPromise = XlsxFileHandler.readTransactionsFromExcel(inputFilePath);
 
     console.log('Calculating crypto taxes...');
-    const taxCalculator = createTaxCalculator();
+    const taxCalculator = createTaxCalculator(logFilePath);
 
     // Process transactions and calculate taxes in parallel
-    const [transactions, cryptoDetails] = await Promise.all([
+    const [, cryptoDetails] = await Promise.all([
       transactionsPromise,
       taxCalculator.calculateCryptoTaxes(await transactionsPromise),
     ]);
 
     console.log('Writing grouped taxes to Excel file...');
-    await XlsxFileHandler.writeGroupedTaxesToExcel(cryptoDetails, outputFilePath, transactions);
+    await XlsxFileHandler.writeGroupedTaxesToExcel(cryptoDetails, outputFilePath);
 
     console.log(`Grouped tax calculation completed. Check ${outputFilePath} for results and ${logFilePath} for any issues.`);
   } catch (error) {

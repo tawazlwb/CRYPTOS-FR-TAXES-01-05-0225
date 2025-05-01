@@ -7,8 +7,8 @@ export interface TaxCalculator {
   calculateCryptoTaxes(transactions: CryptoTransaction[]): Promise<{ [crypto: string]: CryptoDetails }>;
 }
 
-export function createTaxCalculator(currency :string = BASE_CURRENCY): TaxCalculator {
-  const conversionProvider: CurrencyConversionInterface = new ECBConversionProvider();
+export function createTaxCalculator(logFilePath : string , currency :string = BASE_CURRENCY): TaxCalculator {
+  const conversionProvider: CurrencyConversionInterface = new ECBConversionProvider(logFilePath);
   return createFrTaxCalculator(conversionProvider, currency);
 }
 
