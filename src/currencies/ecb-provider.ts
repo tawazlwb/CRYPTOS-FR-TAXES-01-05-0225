@@ -1,9 +1,21 @@
 import axios from 'axios';
+import Bottleneck from 'bottleneck';
 
 import { CurrencyConversionInterface } from '../types';
 
+// Create a rate limiter instance
+const limiter = new Bottleneck({
+  minTime: 100, // Minimum time between requests in milliseconds (1 request per second)
+  maxConcurrent: 1, // Only one request at a time
+});
+
 export class ECBConversionProvider implements CurrencyConversionInterface {
   private static BASE_URL = 'https://api.exchangeratesapi.io';
+
+  // Wrap the axios.get call with the rate limiter
+  private async limitedGet(url: string, params: Record<string, string>): Promise<any> {
+    return limiter.schedule(() => axios.get(url, { params }));
+  }
 
   /**
    * Fetches the exchange rate for a given currency pair and date.
@@ -15,11 +27,9 @@ export class ECBConversionProvider implements CurrencyConversionInterface {
   async getExchangeRate(fromCurrency: string, toCurrency: string, date?: string): Promise<number> {
     try {
       const endpoint = date ? `${ECBConversionProvider.BASE_URL}/${date}` : `${ECBConversionProvider.BASE_URL}/latest`;
-      const response = await axios.get(endpoint, {
-        params: {
-          base: fromCurrency,
-          symbols: toCurrency,
-        },
+      const response = await this.limitedGet(endpoint, {
+        base: fromCurrency,
+        symbols: toCurrency,
       });
 
       if (response.data && response.data.rates && response.data.rates[toCurrency]) {
