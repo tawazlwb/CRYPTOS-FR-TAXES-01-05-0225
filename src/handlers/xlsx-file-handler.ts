@@ -2,6 +2,7 @@ import * as xlsx from 'xlsx';
 import * as fs from 'fs';
 import * as winston from 'winston';
 import * as Joi from 'joi';
+import { Worker } from 'worker_threads';
 
 import { CellColors, CryptoDetails, CryptoTransaction, TransactionDetails } from "../types";
 
@@ -46,31 +47,67 @@ export class XlsxFileHandler {
     };
   }
 
-  static readTransactionsFromExcel(filePath: string): CryptoTransaction[] {
+  static async readTransactionsFromExcel(filePath: string): Promise<CryptoTransaction[]> {
     const workbook = xlsx.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
 
     const transactions: CryptoTransaction[] = [];
+    const errors: any[] = [];
 
-    data.forEach((row: any, index: number) => {
-      try {
-        const transaction = XlsxFileHandler.validateRow(row, index);
-        transactions.push(transaction);
-      } catch (error) {
-        const logEntry = {
-          timestamp: new Date().toISOString(),
-          line: index + XlsxFileHandler.EXCEL_START_LINE, // Use class property for start line
-          errorType: error instanceof Error ? error.message.split(':')[0] : 'UnknownError',
-          message: error instanceof Error ? error.message : 'An unknown error occurred',
-          details: {
-            rowContent: row,
-          },
-        };
-        logger.error(logEntry);
-      }
+    // Process rows in parallel using Worker Threads
+    const promises = data.map((row: any, index: number) => {
+      return new Promise<void>((resolve) => {
+        const worker = new Worker(`
+          const { parentPort } = require('worker_threads');
+          const Joi = require('joi');
+
+          const rowSchema = ${rowSchema.toString()};
+
+          parentPort.on('message', ({ row, index }) => {
+            const { error, value } = rowSchema.validate(row);
+            if (error) {
+              parentPort.postMessage({ error: error.details.map((d) => d.message).join(', '), index, row });
+            } else {
+              parentPort.postMessage({ transaction: {
+                date: value.date,
+                crypto: value.crypto,
+                buyPrice: parseFloat(value.buyPrice),
+                buyCurrency: value.buyCurrency,
+                sellPrice: parseFloat(value.sellPrice),
+                sellCurrency: value.sellCurrency,
+                quantity: parseFloat(value.quantity),
+              } });
+            }
+          });
+        `, { eval: true });
+
+        worker.on('message', (message) => {
+          if (message.error) {
+            errors.push({
+              timestamp: new Date().toISOString(),
+              line: index + XlsxFileHandler.EXCEL_START_LINE,
+              errorType: 'InvalidRow',
+              message: message.error,
+              details: { rowContent: message.row },
+            });
+          } else if (message.transaction) {
+            transactions.push(message.transaction);
+          }
+          resolve();
+        });
+
+        worker.postMessage({ row, index });
+      });
     });
+
+    await Promise.all(promises);
+
+    // Log errors in bulk
+    if (errors.length > 0) {
+      logger.error(errors);
+    }
 
     return transactions;
   }
