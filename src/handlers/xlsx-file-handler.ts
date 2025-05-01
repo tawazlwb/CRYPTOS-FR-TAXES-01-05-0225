@@ -125,21 +125,22 @@ export class XlsxFileHandler {
   ): void {
     const data: any[] = [];
 
-    for (const crypto in cryptoDetails) {
-      cryptoDetails[crypto].transactions.forEach((transaction: TransactionDetails) => {
-        data.push({
-          crypto,
-          date: transaction.date,
-          buyPrice: transaction.buyPrice,
-          buyCurrency: transaction.buyCurrency,
-          sellPrice: transaction.sellPrice,
-          sellCurrency: transaction.sellCurrency,
-          quantity: transaction.quantity,
-          profitOrLoss: transaction.profitOrLoss,
-          tax: transaction.tax,
-        });
-      });
+    // Group data preparation
+    Object.entries(cryptoDetails).forEach(([crypto, details]) => {
+      const cryptoData = details.transactions.map((transaction: TransactionDetails) => ({
+        crypto,
+        date: transaction.date,
+        buyPrice: transaction.buyPrice,
+        buyCurrency: transaction.buyCurrency,
+        sellPrice: transaction.sellPrice,
+        sellCurrency: transaction.sellCurrency,
+        quantity: transaction.quantity,
+        profitOrLoss: transaction.profitOrLoss,
+        tax: transaction.tax,
+      }));
 
+      // Add transactions and totals
+      data.push(...cryptoData);
       data.push({
         crypto,
         date: 'Total',
@@ -149,43 +150,66 @@ export class XlsxFileHandler {
         sellCurrency: '',
         quantity: '',
         profitOrLoss: '',
-        tax: cryptoDetails[crypto].totalTax,
+        tax: details.totalTax,
       });
 
-      // Add two empty lines between each crypto section
+      // Add empty lines for separation
       data.push({}, {});
-    }
+    });
 
     const worksheet = xlsx.utils.json_to_sheet(data);
 
-    // Apply styles for profitOrLoss, tax, and total taxes
+    // Apply styles in parallel using Worker Threads
     const range = xlsx.utils.decode_range(worksheet['!ref']!);
+    const promises: Promise<void>[] = [];
+
     for (let row = range.s.r; row <= range.e.r; row++) {
-      const profitOrLossCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 7 })]; // Column for profitOrLoss
-      const taxCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 8 })]; // Column for tax
+      promises.push(
+        new Promise((resolve) => {
+          const worker = new Worker(`
+            const { parentPort } = require('worker_threads');
 
-      if (profitOrLossCell && profitOrLossCell.v !== '') {
-        const profitOrLossValue = parseFloat(profitOrLossCell.v);
-        if (!isNaN(profitOrLossValue)) {
-          XlsxFileHandler.applyCellStyle(
-            profitOrLossCell,
-            profitOrLossValue >= 0 ? CellColors.Profit : CellColors.Loss
-          );
-        }
-      }
+            parentPort.on('message', ({ row, worksheet }) => {
+              const xlsx = require('xlsx');
+              const { applyCellStyle, CellColors } = require('./path-to-xlsx-file-handler');
 
-      if (taxCell && taxCell.v !== '' && worksheet[xlsx.utils.encode_cell({ r: row, c: 1 })]?.v !== 'Total') {
-        XlsxFileHandler.applyCellStyle(taxCell, CellColors.IndividualTax);
-      }
+              const profitOrLossCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 7 })];
+              const taxCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 8 })];
+              const isTotalRow = worksheet[xlsx.utils.encode_cell({ r: row, c: 1 })]?.v === 'Total';
 
-      if (worksheet[xlsx.utils.encode_cell({ r: row, c: 1 })]?.v === 'Total') {
-        const totalTaxCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 8 })]; // Column for total tax
-        XlsxFileHandler.applyCellStyle(totalTaxCell, CellColors.TotalTax);
-      }
+              if (profitOrLossCell && profitOrLossCell.v !== '') {
+                const profitOrLossValue = parseFloat(profitOrLossCell.v);
+                if (!isNaN(profitOrLossValue)) {
+                  applyCellStyle(
+                    profitOrLossCell,
+                    profitOrLossValue >= 0 ? CellColors.Profit : CellColors.Loss
+                  );
+                }
+              }
+
+              if (taxCell && taxCell.v !== '' && !isTotalRow) {
+                applyCellStyle(taxCell, CellColors.IndividualTax);
+              }
+
+              if (isTotalRow) {
+                const totalTaxCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 8 });
+                applyCellStyle(totalTaxCell, CellColors.TotalTax);
+              }
+
+              parentPort.postMessage('done');
+            });
+          `, { eval: true });
+
+          worker.on('message', () => resolve());
+          worker.postMessage({ row, worksheet });
+        })
+      );
     }
 
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Grouped Taxes');
-    xlsx.writeFile(workbook, outputPath);
+    Promise.all(promises).then(() => {
+      const workbook = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(workbook, worksheet, 'Grouped Taxes');
+      xlsx.writeFile(workbook, outputPath);
+    });
   }
 }
