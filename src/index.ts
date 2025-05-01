@@ -7,6 +7,9 @@ import * as ts from 'typescript';
 import { XlsxFileHandler } from './handlers';
 import { createTaxCalculator } from './calculators';
 
+export const logFilePath = path.join(__dirname, '../../output', 'ecb-provider-logs.txt');
+
+
 function getOutDirFromTsConfig(): string {
   const configPath = path.resolve('tsconfig.json');
   const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -36,7 +39,6 @@ async function main() {
     // Define file paths within the unique output folder
     const inputFilePath = process.argv[2] || 'transactions.xlsx';
     const outputFilePath = path.join(outputFolder, `grouped_taxes_${formattedDate}.xlsx`);
-    const logFilePath = path.join(outputFolder, `error_${formattedDate}.log`);
 
     // Vérifier si le fichier d'entrée existe
     if (!existsSync(inputFilePath)) {

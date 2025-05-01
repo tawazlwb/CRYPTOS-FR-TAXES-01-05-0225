@@ -1,5 +1,11 @@
 import axios from 'axios';
 import Bottleneck from 'bottleneck';
+import fs from 'fs';
+import path from 'path';
+import { Mutex } from 'async-mutex';
+import crypto from 'crypto';
+
+export const logFilePath = path.join(__dirname, '../../output', 'ecb-provider-logs.txt');
 
 import { CurrencyConversionInterface } from '../types';
 
@@ -9,12 +15,38 @@ const limiter = new Bottleneck({
   maxConcurrent: 1, // Only one request at a time
 });
 
+// Create a mutex for synchronizing log writes
+const logMutex = new Mutex();
+
+// Updated helper function to log data to the file with parallel handling
+async function logToFile(data: string, hashId?: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+  const logEntry = `====================\nTimestamp: ${timestamp}\nHash ID: ${hashId || 'N/A'}\nDetails: ${data}\n====================\n\n`;
+
+  await logMutex.runExclusive(async () => {
+    try {
+      fs.appendFileSync(logFilePath, logEntry, 'utf8');
+    } catch (error) {
+      console.error(`Failed to write log: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+}
+
 export class ECBConversionProvider implements CurrencyConversionInterface {
   private static BASE_URL = 'https://api.exchangeratesapi.io';
 
-  // Wrap the axios.get call with the rate limiter
+  // Updated limitedGet to include hash ID for request-response linking
   private async limitedGet(url: string, params: Record<string, string>): Promise<any> {
-    return limiter.schedule(() => axios.get(url, { params }));
+    const hashId = crypto.randomBytes(8).toString('hex');
+    try {
+      logToFile(`Request: URL=${url}, Params=${JSON.stringify(params)}`, hashId);
+      const response = await limiter.schedule(() => axios.get(url, { params }));
+      logToFile(`Response: ${JSON.stringify(response.data)}`, hashId);
+      return response;
+    } catch (error) {
+      logToFile(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, hashId);
+      throw error;
+    }
   }
 
   /**

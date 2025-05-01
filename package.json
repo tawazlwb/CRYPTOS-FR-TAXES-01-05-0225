@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "@types/node": "^22.15.3",
+    "async-mutex": "^0.5.0",
     "axios": "^1.9.0",
     "bottleneck": "^2.19.5",
     "date-fns": "^4.1.0",
