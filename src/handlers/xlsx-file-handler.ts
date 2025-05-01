@@ -47,10 +47,10 @@ export class XlsxFileHandler {
     };
   }
 
-  static async readTransactionsFromExcel(filePath: string): Promise<CryptoTransaction[]> {
+  static async readTransactionsFromExcel(filePath: string, sheetName?: string): Promise<CryptoTransaction[]> {
     const workbook = xlsx.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+    const selectedSheetName = sheetName || workbook.SheetNames[0];
+    const sheet = workbook.Sheets[selectedSheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
 
     const transactions: CryptoTransaction[] = [];

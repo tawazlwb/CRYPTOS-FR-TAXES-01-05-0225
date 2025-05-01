@@ -71,4 +71,5 @@ async function main() {
 
 // node src/index.js chemin_fichier_entree.xlsx chemin_fichier_sortie.xlsx chemin_fichier_journal.log
 // node src/index.js chemin_fichier_entree.xlsx
+// npm start -- ./src/example/transactions.xlsx
 main();
