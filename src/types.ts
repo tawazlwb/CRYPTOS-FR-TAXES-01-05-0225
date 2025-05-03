@@ -38,9 +38,9 @@ export interface CurrencyConversionInterface {
   convertCurrency(amount: number, fromCurrency: string, toCurrency: string, date?: string): Promise<number>;
 }
 
-export enum CellColors {
-  Profit = '228B22', // Green for profit
-  Loss = 'FF6347', // Orange for loss
-  IndividualTax = 'FFD700', // Yellow for individual taxes
-  TotalTax = 'DC143C', // Red for total taxes
-}
+// export enum CellColors {
+//   Profit = '228B22', // Green for profit
+//   Loss = 'FF6347', // Orange for loss
+//   IndividualTax = 'FFD700', // Yellow for individual taxes
+//   TotalTax = 'DC143C', // Red for total taxes
+// }

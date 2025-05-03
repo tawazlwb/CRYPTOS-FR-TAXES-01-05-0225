@@ -29,6 +29,9 @@ async function logToFile(logFilePath: string, data: string, hashId?: string): Pr
   });
 }
 
+// Constant to toggle between real and mock implementation
+export const useGetExchangeRateMock: boolean = true;
+
 export class ECBConversionProvider implements CurrencyConversionInterface {
   private static BASE_URL = 'https://api.exchangeratesapi.io';
   private logFilePath: string;
@@ -81,6 +84,33 @@ export class ECBConversionProvider implements CurrencyConversionInterface {
     }
   }
 
+  // Mock implementation of getExchangeRate for testing purposes
+  async mockGetExchangeRate(fromCurrency: string, toCurrency: string, date?: string): Promise<number> {
+    // Mocked exchange rates for testing
+    const mockRates: Record<string, Record<string, number>> = {
+      USD: { EUR: 0.91, GBP: 0.78 },
+      EUR: { USD: 1.1, GBP: 0.85 },
+      GBP: { USD: 1.28, EUR: 1.18 },
+    };
+
+    // Simulate a delay to mimic an API call
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    if (mockRates[fromCurrency] && mockRates[fromCurrency][toCurrency]) {
+      return mockRates[fromCurrency][toCurrency];
+    } else {
+      throw new Error(`Mock exchange rate not found for ${fromCurrency} to ${toCurrency}`);
+    }
+  }
+
+  // Wrapper function to switch between real and mock implementations
+  async getExchangeRateWrapper(fromCurrency: string, toCurrency: string, date?: string): Promise<number> {
+    const exchangeRate = useGetExchangeRateMock === true
+      ? await this.getExchangeRate(fromCurrency, toCurrency, date)
+      : await this.getExchangeRate(fromCurrency, toCurrency, date);
+    return 1 * exchangeRate;
+  }
+
   /**
    * Converts an amount from one currency to another for a specific date.
    * @param amount The amount to convert.
@@ -90,7 +120,9 @@ export class ECBConversionProvider implements CurrencyConversionInterface {
    * @returns The converted amount as a number.
    */
   async convertCurrency(amount: number, fromCurrency: string, toCurrency: string, date?: string): Promise<number> {
-    const exchangeRate = await this.getExchangeRate(fromCurrency, toCurrency, date);
+    const exchangeRate = useGetExchangeRateMock === true
+      ? await this.mockGetExchangeRate(fromCurrency, toCurrency, date)
+      : await this.getExchangeRate(fromCurrency, toCurrency, date);
     return amount * exchangeRate;
   }
 }

@@ -38,6 +38,7 @@ async function main() {
     const inputFilePath = process.argv[2] || 'transactions.xlsx';
     const outputFilePath = path.join(outputFolder, `grouped_taxes_${formattedDate}.xlsx`);
     const logFilePath = path.join(outputFolder, `ecb-provider-logs_${formattedDate}.txt`);
+    const logFilePathValidation = path.join(outputFolder, `validation_${formattedDate}.json`);
 
     // Vérifier si le fichier d'entrée existe
     if (!existsSync(inputFilePath)) {
@@ -45,7 +46,7 @@ async function main() {
     }
 
     console.log('Reading transactions from Excel file...');
-    const transactionsPromise = XlsxFileHandler.readTransactionsFromExcel(inputFilePath);
+    const transactionsPromise = XlsxFileHandler.readTransactionsFromExcel(inputFilePath, logFilePathValidation);
 
     console.log('Calculating crypto taxes...');
     const taxCalculator = createTaxCalculator(logFilePath);
