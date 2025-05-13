@@ -1,20 +1,15 @@
-const { parentPort } = require("worker_threads");
-const xlsx = require("xlsx");
 
-function applyCellStyle(cell, color) {
+import { parentPort } from "worker_threads";
+import * as xlsx from "xlsx";
+import { Cell, CellColors } from "../types";
+
+const applyCellStyle = (cell: Cell | undefined, color: string): void => {
   if (cell) {
     cell.s = { fill: { fgColor: { rgb: color } } };
   }
 }
 
-const CellColors = {
-  Profit: "228B22", // Green for profit
-  Loss: "FF6347", // Orange for loss
-  IndividualTax: "FFD700", // Yellow for individual taxes
-  TotalTax: "DC143C", // Red for total taxes
-};
-
-parentPort.on("message", ({ row, worksheet }) => {
+parentPort?.on("message", ({ row, worksheet }) => {
   const profitOrLossCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 7 })];
   const taxCell = worksheet[xlsx.utils.encode_cell({ r: row, c: 8 })];
   const isTotalRow =
@@ -39,5 +34,5 @@ parentPort.on("message", ({ row, worksheet }) => {
     applyCellStyle(totalTaxCell, CellColors.TotalTax);
   }
 
-  parentPort.postMessage("done");
+  parentPort?.postMessage("done");
 });

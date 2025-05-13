@@ -1,3 +1,5 @@
+import * as Joi from 'joi';
+
 export interface CryptoTransaction {
   date: string; // Format: YYYY-MM-DD
   crypto: string; // Cryptocurrency name (e.g., BTC, ETH)
@@ -38,9 +40,34 @@ export interface CurrencyConversionInterface {
   convertCurrency(amount: number, fromCurrency: string, toCurrency: string, date?: string): Promise<number>;
 }
 
-// export enum CellColors {
-//   Profit = '228B22', // Green for profit
-//   Loss = 'FF6347', // Orange for loss
-//   IndividualTax = 'FFD700', // Yellow for individual taxes
-//   TotalTax = 'DC143C', // Red for total taxes
-// }
+export interface Cell {
+  v: string | number;
+  s?: {
+    fill?: {
+      fgColor?: {
+        rgb: string;
+      };
+    };
+  };
+}
+
+export enum CellColors {
+  Profit = '228B22', // Green for profit
+  Loss = 'FF6347', // Orange for loss
+  IndividualTax = 'FFD700', // Yellow for individual taxes
+  TotalTax = 'DC143C', // Red for total taxes
+};
+
+// Define a schema for row validation using Joi
+export const rowSchema = Joi.object({
+  date: Joi.string().trim().required(),
+  crypto: Joi.string().trim().required(),
+  buyPrice: Joi.number()
+    .required(),
+  buyCurrency: Joi.string().trim().required(),
+  sellPrice: Joi.number()
+    .required(),
+  sellCurrency: Joi.string().trim().required(),
+  quantity: Joi.number()
+    .required(),
+});

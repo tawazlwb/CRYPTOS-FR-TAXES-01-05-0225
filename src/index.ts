@@ -31,7 +31,7 @@ async function main() {
     const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
 
     // Generate a unique output folder for each execution
-    const outputFolder = path.join(getOutDirFromTsConfig(), `output_${formattedDate}`);
+    const outputFolder = path.join(getOutDirFromTsConfig(), `output/output_${formattedDate}`);
     await fs.mkdir(outputFolder, { recursive: true });
 
     // Define file paths within the unique output folder

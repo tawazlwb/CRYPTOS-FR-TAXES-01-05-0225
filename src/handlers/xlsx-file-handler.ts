@@ -1,26 +1,20 @@
 import * as xlsx from 'xlsx';
-import * as fs from 'fs';
 import * as winston from 'winston';
-import * as Joi from 'joi';
 import { Worker } from 'worker_threads';
 import { join } from 'path';
 
-import { CryptoDetails, CryptoTransaction, TransactionDetails } from "../types";
+import { CryptoDetails, CryptoTransaction, rowSchema, TransactionDetails } from "../types";
 
 // Path to the workers file
-const workerValidationPath = join(__dirname, '../workers/row-validation-worker.js');
-const workerStylePath = join(__dirname, '../workers/apply-cell-style-worker.js');
+const isDev = process.env.NODE_ENV !== 'production';
 
-// Define a schema for row validation using Joi
-const rowSchema = Joi.object({
-  date: Joi.string().trim().required(),
-  crypto: Joi.string().trim().required(),
-  buyPrice: Joi.string().trim().regex(/^[0-9]+(\.[0-9]+)?$/).required(),
-  buyCurrency: Joi.string().trim().required(),
-  sellPrice: Joi.string().trim().regex(/^[0-9]+(\.[0-9]+)?$/).required(),
-  sellCurrency: Joi.string().trim().required(),
-  quantity: Joi.string().trim().regex(/^[0-9]+(\.[0-9]+)?$/).required(),
-});
+const workerValidationPath = isDev
+  ? join(__dirname, '../workers/row-validation-worker.ts') // Dev: TypeScript
+  : join(__dirname, '../workers/row-validation-worker.js'); // Prod: JavaScript
+
+const workerStylePath = isDev
+  ? join(__dirname, '../workers/apply-cell-style-worker.ts') // Dev: TypeScript
+  : join(__dirname, '../workers/apply-cell-style-worker.js'); // Prod: JavaScript
 
 export class XlsxFileHandler {
   static readonly EXCEL_START_LINE = 2; // Excel rows start at 1, plus header row
@@ -63,7 +57,9 @@ export class XlsxFileHandler {
 
     const promises = data.map((row: any, index: number) => {
       return new Promise<void>((resolve) => {
-        const worker = new Worker(workerValidationPath);
+        const worker = new Worker(workerValidationPath, {
+          execArgv: ['-r', 'ts-node/register'], // Permet d'exécuter TypeScript directement
+        });
 
         worker.on('message', (message) => {
           if (message.error) {
@@ -142,7 +138,9 @@ export class XlsxFileHandler {
     for (let row = range.s.r; row <= range.e.r; row++) {
       promises.push(
         new Promise((resolve) => {
-          const worker = new Worker(workerStylePath);
+          const worker = new Worker(workerStylePath, {
+            execArgv: ['-r', 'ts-node/register'], // Permet d'exécuter TypeScript directement
+          });
 
           worker.on('message', () => {
             worker.terminate(); // Terminate the worker after processing
